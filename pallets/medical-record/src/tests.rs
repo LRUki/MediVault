@@ -122,7 +122,7 @@ fn doctor_can_transform_unverified_record() {
 				doctor.clone(),
 				patient_account_id,
 				record_id_to_verify,
-				signature
+				signature.clone()
 			));
 
 			let verified_record = MedicalRecord::get_record_by_id(
@@ -143,6 +143,17 @@ fn doctor_can_transform_unverified_record() {
 					.collect::<Vec<_>>()
 					.len(),
 				max_record_len - 1
+			);
+
+			// A record verified once cannot be verified again
+			assert_noop!(
+				MedicalRecord::doctor_verifies_record(
+					doctor.clone(),
+					patient_account_id,
+					record_id_to_verify,
+					signature
+				),
+				Error::<Test>::RecordAlreadyVerified
 			);
 		});
 }

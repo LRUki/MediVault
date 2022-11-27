@@ -103,6 +103,7 @@ pub mod pallet {
 		AccountAlreadyExist,
 		InvalidArgument,
 		ExceedsMaxRecordLength,
+		RecordAlreadyVerified,
 	}
 
 	#[pallet::genesis_config]
@@ -223,17 +224,20 @@ pub mod pallet {
 			);
 			let mut patient_records = <Records<T>>::get(&patient_account_id, &UserType::Patient)
 				.ok_or(Error::<T>::AccountNotFound)?;
-			let record_index = (record_id - 1) as usize;
-			ensure!(record_index < patient_records.len(), Error::<T>::InvalidArgument);
-			let record_to_be_verified = patient_records[record_index].clone();
+
+			let record_index_to_verify = (record_id - 1) as usize;
+
+			ensure!(record_index_to_verify < patient_records.len(), Error::<T>::InvalidArgument);
+
 			let record_to_be_verified =
-				Record::transform_unverified_record(record_to_be_verified, signature);
+				patient_records.get_mut(record_index_to_verify).expect("record should exist");
 
-			if let Some(old_unverified_record) = patient_records.get_mut(record_index) {
-				*old_unverified_record = record_to_be_verified;
-			}
-			let patient_records = patient_records;
+			let verified_record =
+				Record::transform_unverified_record(record_to_be_verified.clone(), signature);
 
+			ensure!(!record_to_be_verified.is_verified(), Error::<T>::RecordAlreadyVerified);
+
+			*record_to_be_verified = verified_record;
 			<Records<T>>::set(patient_account_id, UserType::Patient, Some(patient_records));
 
 			Ok(())
