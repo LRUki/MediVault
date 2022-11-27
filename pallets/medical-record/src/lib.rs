@@ -50,23 +50,29 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Record<T> {
-		pub(crate) fn transform_unverified_record(
+		pub fn transform_unverified_record(
 			record: Record<T>,
 			signature: Signature<T>,
 		) -> Record<T> {
 			match record {
 				Record::VerifiedRecord(_, _, _, _) => record,
-				Record::UnverifiedRecord(record_id, account_id, record_content) =>
-					Record::VerifiedRecord(record_id, account_id, record_content, signature),
+				Record::UnverifiedRecord(record_id, account_id, record_content) => {
+					Record::VerifiedRecord(record_id, account_id, record_content, signature)
+				},
 			}
 		}
-	}
 
-	impl<T: Config> Record<T> {
 		pub fn get_id(&self) -> u32 {
 			match self {
 				Record::UnverifiedRecord(id, _, _) => *id,
 				Record::VerifiedRecord(id, _, _, _) => *id,
+			}
+		}
+
+		pub fn is_verified(&self) -> bool {
+			match self {
+				Record::UnverifiedRecord(_, _, _) => false,
+				Record::VerifiedRecord(_, _, _, _) => true,
 			}
 		}
 	}
@@ -242,7 +248,7 @@ pub mod pallet {
 		) -> Option<Record<T>> {
 			Self::records(&patient_account_id, &user_type).map_or(None, |records| {
 				if (records.len() as u32) < record_id {
-					return None
+					return None;
 				}
 				records.into_iter().find(|r| r.get_id() == record_id)
 			})
