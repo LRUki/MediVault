@@ -1,4 +1,4 @@
-use crate::{mock::*, Error, Record, UserType};
+use crate::{mock::*, Error, UserType};
 use frame_support::{assert_noop, assert_ok, bounded_vec, BoundedVec};
 
 use sp_core::Get;
@@ -39,14 +39,7 @@ fn patient_can_add_record() {
 				.expect("The record should exist");
 			assert_eq!(records.len(), max_record_len);
 			assert_eq!(
-				records
-					.into_iter()
-					.filter(|r| match r {
-						Record::UnverifiedRecord(_, _, _) => true,
-						_ => false,
-					})
-					.collect::<Vec<_>>()
-					.len(),
+				records.into_iter().filter(|r| !r.is_verified()).collect::<Vec<_>>().len(),
 				max_record_len
 			);
 
@@ -87,10 +80,7 @@ fn doctor_can_add_record_for_patient() {
 			assert_eq!(
 				patient_records
 					.into_iter()
-					.filter(|r| match r {
-						Record::VerifiedRecord(_, _, _, _) => true,
-						_ => false,
-					})
+					.filter(|r| r.is_verified())
 					.collect::<Vec<_>>()
 					.len(),
 				max_record_len
@@ -118,30 +108,52 @@ fn doctor_can_transform_unverified_record() {
 		.build()
 		.execute_with(|| {
 			// Patient submits a record
-			assert_ok!(MedicalRecord::patient_adds_record(
-				patient.clone(),
-				BoundedVec::with_max_capacity()
-			));
-			// Doctor verifies it
+			let max_record_len = <MockMaxRecordLength as Get<u32>>::get() as usize;
+			for _ in 0..max_record_len {
+				assert_ok!(MedicalRecord::patient_adds_record(
+					patient.clone(),
+					BoundedVec::with_max_capacity()
+				));
+			}
+			let record_id_to_verify = 1.min(max_record_len as u32 / 2);
+			// Doctor verifies the second record
 			let signature: BoundedVec<u8, MockSignatureLength> = bounded_vec![];
 			assert_ok!(MedicalRecord::doctor_verifies_record(
 				doctor.clone(),
 				patient_account_id,
-				0,
-				signature
+				record_id_to_verify,
+				signature.clone()
 			));
-			let verified_records = MedicalRecord::records(patient_account_id, UserType::Patient)
-				.expect("Record should verified");
+
+			let verified_record = MedicalRecord::get_record_by_id(
+				patient_account_id,
+				UserType::Patient,
+				record_id_to_verify,
+			)
+			.expect("Record should exist");
+
+			assert!(verified_record.is_verified());
+
+			let patient_records = MedicalRecord::records(patient_account_id, UserType::Patient)
+				.expect("records should exists");
 			assert_eq!(
-				verified_records
+				patient_records
 					.into_iter()
-					.filter(|r| match r {
-						Record::VerifiedRecord(_, _, _, _) => true,
-						_ => false,
-					})
+					.filter(|r| !r.is_verified())
 					.collect::<Vec<_>>()
 					.len(),
-				1
+				max_record_len - 1
+			);
+
+			// A record verified once cannot be verified again
+			assert_noop!(
+				MedicalRecord::doctor_verifies_record(
+					doctor.clone(),
+					patient_account_id,
+					record_id_to_verify,
+					signature
+				),
+				Error::<Test>::RecordAlreadyVerified
 			);
 		});
 }

@@ -42,7 +42,7 @@ pub mod pallet {
 	type RecordContent<T> = BoundedVec<u8, <T as Config>::MaxRecordContentLength>;
 	type Signature<T> = BoundedVec<u8, <T as Config>::SignatureLength>;
 
-	#[derive(Decode, Encode, Debug, Eq, PartialEq, MaxEncodedLen, TypeInfo)]
+	#[derive(Decode, Encode, Clone, Debug, Eq, PartialEq, MaxEncodedLen, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub enum Record<T: Config> {
 		VerifiedRecord(RecordId, T::AccountId, RecordContent<T>, Signature<T>),
@@ -50,10 +50,29 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Record<T> {
+		pub fn transform_unverified_record(
+			record: Record<T>,
+			signature: Signature<T>,
+		) -> Record<T> {
+			match record {
+				Record::VerifiedRecord(_, _, _, _) => record,
+				Record::UnverifiedRecord(record_id, account_id, record_content) => {
+					Record::VerifiedRecord(record_id, account_id, record_content, signature)
+				},
+			}
+		}
+
 		pub fn get_id(&self) -> u32 {
 			match self {
 				Record::UnverifiedRecord(id, _, _) => *id,
 				Record::VerifiedRecord(id, _, _, _) => *id,
+			}
+		}
+
+		pub fn is_verified(&self) -> bool {
+			match self {
+				Record::UnverifiedRecord(_, _, _) => false,
+				Record::VerifiedRecord(_, _, _, _) => true,
 			}
 		}
 	}
@@ -84,6 +103,7 @@ pub mod pallet {
 		AccountAlreadyExist,
 		InvalidArgument,
 		ExceedsMaxRecordLength,
+		RecordAlreadyVerified,
 	}
 
 	#[pallet::genesis_config]
@@ -202,18 +222,23 @@ pub mod pallet {
 				<Records<T>>::contains_key(&who, &UserType::Doctor),
 				Error::<T>::AccountNotFound
 			);
-			let patient_records = <Records<T>>::get(&patient_account_id, &UserType::Patient)
+			let mut patient_records = <Records<T>>::get(&patient_account_id, &UserType::Patient)
 				.ok_or(Error::<T>::AccountNotFound)?;
-			ensure!((record_id as usize) < patient_records.len(), Error::<T>::InvalidArgument);
-			let old_unverified_record = &patient_records[(record_id as usize)];
-			if let Record::UnverifiedRecord(_, _, content_to_verify) = old_unverified_record {
-				Self::doctor_adds_record(
-					origin,
-					patient_account_id,
-					content_to_verify.clone(),
-					signature,
-				)?;
-			}
+
+			let record_index_to_verify = (record_id - 1) as usize;
+
+			ensure!(record_index_to_verify < patient_records.len(), Error::<T>::InvalidArgument);
+
+			let record_to_be_verified =
+				patient_records.get_mut(record_index_to_verify).expect("record should exist");
+
+			let verified_record =
+				Record::transform_unverified_record(record_to_be_verified.clone(), signature);
+
+			ensure!(!record_to_be_verified.is_verified(), Error::<T>::RecordAlreadyVerified);
+
+			*record_to_be_verified = verified_record;
+			<Records<T>>::set(patient_account_id, UserType::Patient, Some(patient_records));
 
 			Ok(())
 		}
