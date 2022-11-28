@@ -109,6 +109,9 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		AccountCreated(T::AccountId, UserType),
+		PatientAddsRecord(PatientAccountId<T>, RecordId),
+		DoctorAddsRecordForPatient(PatientAccountId<T>, DoctorAccountId<T>, RecordId),
+		DoctorVerifiesRecordForPatient(PatientAccountId<T>, DoctorAccountId<T>, RecordId),
 	}
 
 	// Errors inform users that something went wrong.
@@ -178,10 +181,10 @@ pub mod pallet {
 			let add_record = |mb_record: &mut Option<BoundedVec<Record<_>, _>>| match mb_record {
 				None => Err(Error::<T>::AccountNotFound),
 				Some(patient_records) => {
-					let record_id = patient_records.len() as u32 + 1;
+					let new_record_id = patient_records.len() as u32 + 1;
 					patient_records
 						.try_push(Record::<T>::UnverifiedRecord(
-							record_id,
+							new_record_id,
 							patient_id.clone(),
 							record_content,
 						))
@@ -190,7 +193,10 @@ pub mod pallet {
 			};
 
 			<Records<T>>::mutate(&patient_id, &UserType::Patient, add_record)?;
-
+			let new_record_id = Self::records(&patient_id, &UserType::Patient)
+				.expect("records should exist")
+				.len() as u32;
+			Self::deposit_event(Event::PatientAddsRecord(patient_id, new_record_id));
 			Ok(())
 		}
 
@@ -209,10 +215,10 @@ pub mod pallet {
 			let add_record = |mb_record: &mut Option<BoundedVec<Record<_>, _>>| match mb_record {
 				None => Err(Error::<T>::AccountNotFound),
 				Some(patient_records) => {
-					let record_id = patient_records.len() as u32 + 1;
+					let new_record_id = patient_records.len() as u32 + 1;
 					patient_records
 						.try_push(Record::<T>::VerifiedRecord(
-							record_id,
+							new_record_id,
 							patient_id.clone(),
 							doctor_id.clone(),
 							record_content,
@@ -223,13 +229,21 @@ pub mod pallet {
 			};
 
 			<Records<T>>::mutate(&patient_id, &UserType::Patient, add_record)?;
-
+			let new_record_id = Self::records(&patient_id, &UserType::Patient)
+				.expect("records should exist")
+				.len() as u32;
+			Self::deposit_event(Event::DoctorAddsRecordForPatient(
+				patient_id,
+				doctor_id,
+				new_record_id,
+			));
 			Ok(())
 		}
+
 		#[pallet::weight(10_000)]
 		pub fn doctor_verifies_record(
 			origin: OriginFor<T>,
-			patient_account_id: T::AccountId,
+			patient_id: PatientAccountId<T>,
 			record_id: u32,
 			signature: Signature<T>,
 		) -> DispatchResult {
@@ -238,7 +252,7 @@ pub mod pallet {
 				<Records<T>>::contains_key(&doctor_id, &UserType::Doctor),
 				Error::<T>::AccountNotFound
 			);
-			let mut patient_records = <Records<T>>::get(&patient_account_id, &UserType::Patient)
+			let mut patient_records = <Records<T>>::get(&patient_id, &UserType::Patient)
 				.ok_or(Error::<T>::AccountNotFound)?;
 
 			let record_index_to_verify = (record_id - 1) as usize;
@@ -250,15 +264,18 @@ pub mod pallet {
 
 			let verified_record = Record::transform_unverified_record(
 				record_to_be_verified.clone(),
-				doctor_id,
+				doctor_id.clone(),
 				signature,
 			);
 
 			ensure!(!record_to_be_verified.is_verified(), Error::<T>::RecordAlreadyVerified);
 
 			*record_to_be_verified = verified_record;
-			<Records<T>>::set(patient_account_id, UserType::Patient, Some(patient_records));
+			<Records<T>>::set(patient_id.clone(), UserType::Patient, Some(patient_records));
 
+			Self::deposit_event(Event::DoctorVerifiesRecordForPatient(
+				patient_id, doctor_id, record_id,
+			));
 			Ok(())
 		}
 	}
@@ -266,11 +283,11 @@ pub mod pallet {
 	//helper
 	impl<T: Config> Pallet<T> {
 		pub fn get_record_by_id(
-			patient_account_id: T::AccountId,
+			account_id: T::AccountId,
 			user_type: UserType,
 			record_id: u32,
 		) -> Option<Record<T>> {
-			Self::records(&patient_account_id, &user_type).map_or(None, |records| {
+			Self::records(&account_id, &user_type).map_or(None, |records| {
 				if (records.len() as u32) < record_id {
 					return None;
 				}
