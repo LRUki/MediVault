@@ -41,23 +41,38 @@ pub mod pallet {
 	type RecordId = u32;
 	type RecordContent<T> = BoundedVec<u8, <T as Config>::MaxRecordContentLength>;
 	type Signature<T> = BoundedVec<u8, <T as Config>::SignatureLength>;
+	type PatientAccountId<T> = <T as frame_system::Config>::AccountId;
+	type DoctorAccountId<T> = <T as frame_system::Config>::AccountId;
 
 	#[derive(Decode, Encode, Clone, Debug, Eq, PartialEq, MaxEncodedLen, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub enum Record<T: Config> {
-		VerifiedRecord(RecordId, T::AccountId, RecordContent<T>, Signature<T>),
-		UnverifiedRecord(RecordId, T::AccountId, RecordContent<T>),
+		VerifiedRecord(
+			RecordId,
+			PatientAccountId<T>,
+			DoctorAccountId<T>,
+			RecordContent<T>,
+			Signature<T>,
+		),
+		UnverifiedRecord(RecordId, PatientAccountId<T>, RecordContent<T>),
 	}
 
 	impl<T: Config> Record<T> {
 		pub fn transform_unverified_record(
 			record: Record<T>,
+			doctor_id: DoctorAccountId<T>,
 			signature: Signature<T>,
 		) -> Record<T> {
 			match record {
-				Record::VerifiedRecord(_, _, _, _) => record,
-				Record::UnverifiedRecord(record_id, account_id, record_content) => {
-					Record::VerifiedRecord(record_id, account_id, record_content, signature)
+				Record::VerifiedRecord(_, _, _, _, _) => record,
+				Record::UnverifiedRecord(record_id, patient_id, record_content) => {
+					Record::VerifiedRecord(
+						record_id,
+						patient_id,
+						doctor_id,
+						record_content,
+						signature,
+					)
 				},
 			}
 		}
@@ -65,14 +80,14 @@ pub mod pallet {
 		pub fn get_id(&self) -> u32 {
 			match self {
 				Record::UnverifiedRecord(id, _, _) => *id,
-				Record::VerifiedRecord(id, _, _, _) => *id,
+				Record::VerifiedRecord(id, _, _, _, _) => *id,
 			}
 		}
 
 		pub fn is_verified(&self) -> bool {
 			match self {
 				Record::UnverifiedRecord(_, _, _) => false,
-				Record::VerifiedRecord(_, _, _, _) => true,
+				Record::VerifiedRecord(_, _, _, _, _) => true,
 			}
 		}
 	}
@@ -159,7 +174,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			record_content: RecordContent<T>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let patient_id = ensure_signed(origin)?;
 			let add_record = |mb_record: &mut Option<BoundedVec<Record<_>, _>>| match mb_record {
 				None => Err(Error::<T>::AccountNotFound),
 				Some(patient_records) => {
@@ -167,14 +182,14 @@ pub mod pallet {
 					patient_records
 						.try_push(Record::<T>::UnverifiedRecord(
 							record_id,
-							who.clone(),
+							patient_id.clone(),
 							record_content,
 						))
 						.map_err(|_| Error::<T>::ExceedsMaxRecordLength)
 				},
 			};
 
-			<Records<T>>::mutate(&who, &UserType::Patient, add_record)?;
+			<Records<T>>::mutate(&patient_id, &UserType::Patient, add_record)?;
 
 			Ok(())
 		}
@@ -182,13 +197,13 @@ pub mod pallet {
 		#[pallet::weight(10_000)]
 		pub fn doctor_adds_record(
 			origin: OriginFor<T>,
-			patient_account_id: T::AccountId,
+			patient_id: PatientAccountId<T>,
 			record_content: RecordContent<T>,
 			signature: Signature<T>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let doctor_id = ensure_signed(origin)?;
 			ensure!(
-				<Records<T>>::contains_key(&who, &UserType::Doctor),
+				<Records<T>>::contains_key(&doctor_id, &UserType::Doctor),
 				Error::<T>::AccountNotFound
 			);
 			let add_record = |mb_record: &mut Option<BoundedVec<Record<_>, _>>| match mb_record {
@@ -198,7 +213,8 @@ pub mod pallet {
 					patient_records
 						.try_push(Record::<T>::VerifiedRecord(
 							record_id,
-							who.clone(),
+							patient_id.clone(),
+							doctor_id.clone(),
 							record_content,
 							signature,
 						))
@@ -206,7 +222,7 @@ pub mod pallet {
 				},
 			};
 
-			<Records<T>>::mutate(&patient_account_id, &UserType::Patient, add_record)?;
+			<Records<T>>::mutate(&patient_id, &UserType::Patient, add_record)?;
 
 			Ok(())
 		}
@@ -217,9 +233,9 @@ pub mod pallet {
 			record_id: u32,
 			signature: Signature<T>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin.clone())?;
+			let doctor_id = ensure_signed(origin.clone())?;
 			ensure!(
-				<Records<T>>::contains_key(&who, &UserType::Doctor),
+				<Records<T>>::contains_key(&doctor_id, &UserType::Doctor),
 				Error::<T>::AccountNotFound
 			);
 			let mut patient_records = <Records<T>>::get(&patient_account_id, &UserType::Patient)
@@ -232,8 +248,11 @@ pub mod pallet {
 			let record_to_be_verified =
 				patient_records.get_mut(record_index_to_verify).expect("record should exist");
 
-			let verified_record =
-				Record::transform_unverified_record(record_to_be_verified.clone(), signature);
+			let verified_record = Record::transform_unverified_record(
+				record_to_be_verified.clone(),
+				doctor_id,
+				signature,
+			);
 
 			ensure!(!record_to_be_verified.is_verified(), Error::<T>::RecordAlreadyVerified);
 
@@ -244,6 +263,7 @@ pub mod pallet {
 		}
 	}
 
+	//helper
 	impl<T: Config> Pallet<T> {
 		pub fn get_record_by_id(
 			patient_account_id: T::AccountId,
