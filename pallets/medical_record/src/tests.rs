@@ -39,7 +39,7 @@ fn patient_can_add_record() {
 				.expect("The record should exist");
 			assert_eq!(records.len(), max_record_len);
 			assert_eq!(
-				records.into_iter().filter(|r| !r.is_verified()).collect::<Vec<_>>().len(),
+				records.into_iter().filter(|r| !r.is_verified()).count(),
 				max_record_len
 			);
 
@@ -81,8 +81,7 @@ fn doctor_can_add_record_for_patient() {
 				patient_records
 					.into_iter()
 					.filter(|r| r.is_verified())
-					.collect::<Vec<_>>()
-					.len(),
+                    .count(),
 				max_record_len
 			);
 
@@ -140,8 +139,7 @@ fn doctor_can_transform_unverified_record() {
 				patient_records
 					.into_iter()
 					.filter(|r| !r.is_verified())
-					.collect::<Vec<_>>()
-					.len(),
+					.count(),
 				max_record_len - 1
 			);
 
