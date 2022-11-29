@@ -51,7 +51,7 @@ pub use pallet_template;
 /// Import the template pallet.
 pub use pallet_medical_record;
 
-pub use pallet_medical_encryption;
+pub use pallet_record_sharing;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -263,6 +263,7 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	pub const MaxRecordContentLength: u32 = 300;
 	pub const SignatureLength: u32 = 150;
+	pub const MaxKeyLength: u32 = 69; // fix later
 	pub const MaxRecordLength: u32 = 50;
 }
 
@@ -273,8 +274,9 @@ impl pallet_medical_record::Config for Runtime {
 	type MaxRecordLength = MaxRecordLength;
 }
 
-impl pallet_medical_encryption::Config for Runtime {
+impl pallet_record_sharing::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type MaxKeyLength = MaxKeyLength;
 }
 
 parameter_types! {
@@ -319,7 +321,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
 		MedicalRecord: pallet_medical_record,
-		MedicalEncryption: pallet_medical_encryption,
+		RecordSharing: pallet_record_sharing,
 	}
 );
 

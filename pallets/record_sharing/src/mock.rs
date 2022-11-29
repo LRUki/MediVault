@@ -1,11 +1,13 @@
-use crate as pallet_medical_encryption;
+use crate as pallet_record_sharing;
 use frame_support::traits::{ConstU16, ConstU64};
 use frame_system as system;
-use sp_core::{ConstU32, H256};
+use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
+
+use frame_support::parameter_types;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -18,7 +20,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system,
-		MedicalEncryption: pallet_medical_encryption,
+		RecordSharing: pallet_record_sharing,
 	}
 );
 
@@ -49,8 +51,12 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_medical_encryption::Config for Test {
+parameter_types! {
+	pub const MockMaxKeyLength: u32 = 3;
+}
+impl pallet_record_sharing::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type MaxKeyLength = MockMaxKeyLength;
 }
 
 // Build genesis storage according to the mock runtime.

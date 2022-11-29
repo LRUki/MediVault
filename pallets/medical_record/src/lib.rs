@@ -15,6 +15,7 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use pallet_record_sharing::EncryptedKey;
 	use scale_info::TypeInfo;
 	use serde::{Deserialize, Serialize};
 
@@ -23,7 +24,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_medical_encryption::Config {
+	pub trait Config: frame_system::Config + pallet_record_sharing::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type MaxRecordContentLength: Get<u32>;
 		type SignatureLength: Get<u32>;
@@ -122,6 +123,7 @@ pub mod pallet {
 		InvalidArgument,
 		ExceedsMaxRecordLength,
 		RecordAlreadyVerified,
+		NonExistentRecord,
 	}
 
 	#[pallet::genesis_config]
@@ -280,6 +282,32 @@ pub mod pallet {
 			));
 			Ok(())
 		}
+
+		#[pallet::weight(10_000)]
+		pub fn share_record_with(
+			origin: OriginFor<T>,
+			recipient_id: T::AccountId,
+			encrypted_key: EncryptedKey<T>,
+			record_id: RecordId,
+		) -> DispatchResult {
+			let sender_id = ensure_signed(origin.clone())?;
+			ensure!(
+				Self::account_exists(&sender_id) && Self::account_exists(&recipient_id),
+				Error::<T>::AccountNotFound
+			);
+
+			ensure!(
+				Self::get_record_by_id(sender_id, UserType::Patient, record_id.clone()).is_some(),
+				Error::<T>::NonExistentRecord
+			);
+
+			pallet_record_sharing::Pallet::<T>::share_record(
+				origin,
+				recipient_id,
+				encrypted_key,
+				record_id,
+			)
+		}
 	}
 
 	// helper to read
@@ -295,6 +323,11 @@ pub mod pallet {
 				}
 				records.into_iter().find(|r| r.get_id() == record_id)
 			})
+		}
+
+		fn account_exists(account: &T::AccountId) -> bool {
+			Self::records(&account, &UserType::Patient).is_some()
+				|| Self::records(&account, &UserType::Doctor).is_some()
 		}
 	}
 }

@@ -2,8 +2,8 @@
 members = [
     "node",
     "pallets/template",
-    "pallets/medical-record",
-    "pallets/medical-encryption/",
+    "pallets/medical_record",
+    "pallets/record_sharing/",
     "runtime",
 ]
 [profile.release]

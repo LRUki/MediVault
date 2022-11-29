@@ -15,12 +15,6 @@ pub type AccountId = u64;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-parameter_types! {
-	pub const MockMaxRecordContentLength: u32 = 1;
-	pub const MockSignatureLength: u32 = 3;
-	pub const MockMaxRecordLength: u32 = 3;
-}
-
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -30,7 +24,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		MedicalRecord: pallet_medical_record,
-		MedicalEncryption: pallet_medical_encryption,
+		RecordSharing: pallet_record_sharing,
 	}
 );
 
@@ -68,8 +62,16 @@ impl pallet_medical_record::Config for Test {
 	type MaxRecordLength = MockMaxRecordLength;
 }
 
-impl pallet_medical_encryption::Config for Test {
+parameter_types! {
+	pub const MockMaxRecordContentLength: u32 = 1;
+	pub const MockSignatureLength: u32 = 3;
+	pub const MockMaxRecordLength: u32 = 3;
+	pub const MockMaxKeyLength: u32 = 3;
+}
+
+impl pallet_record_sharing::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type MaxKeyLength = MockMaxKeyLength;
 }
 
 pub struct ExternalitiesBuilder {
