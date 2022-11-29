@@ -149,11 +149,10 @@ pub mod pallet {
 		}
 	}
 
-	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
-	// These functions materialize as "extrinsics", which are often compared to transactions.
-	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		// Create an account for a patient or a doctor.
+		// A single AccountId can only have one account for each UserType
 		#[pallet::weight(10_000)]
 		pub fn create_account(origin: OriginFor<T>, user_type: UserType) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -172,6 +171,7 @@ pub mod pallet {
 			}
 		}
 
+		// Let a patient to add an 'unverified' record which can later be verified by a doctor
 		#[pallet::weight(10_000)]
 		pub fn patient_adds_record(
 			origin: OriginFor<T>,
@@ -200,6 +200,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// Let a doctor to add a verified record for a patient.
 		#[pallet::weight(10_000)]
 		pub fn doctor_adds_record(
 			origin: OriginFor<T>,
@@ -240,6 +241,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// Let a doctor to verify a given unverified record for a patient.
 		#[pallet::weight(10_000)]
 		pub fn doctor_verifies_record(
 			origin: OriginFor<T>,
@@ -280,7 +282,7 @@ pub mod pallet {
 		}
 	}
 
-	//helper
+	// helper to read
 	impl<T: Config> Pallet<T> {
 		pub fn get_record_by_id(
 			account_id: T::AccountId,
