@@ -38,10 +38,7 @@ fn patient_can_add_record() {
 			let records = MedicalRecord::records(patient_account_id, UserType::Patient)
 				.expect("The record should exist");
 			assert_eq!(records.len(), max_record_len);
-			assert_eq!(
-				records.into_iter().filter(|r| !r.is_verified()).count(),
-				max_record_len
-			);
+			assert_eq!(records.into_iter().filter(|r| !r.is_verified()).count(), max_record_len);
 
 			assert_noop!(
 				MedicalRecord::patient_adds_record(
@@ -78,10 +75,7 @@ fn doctor_can_add_record_for_patient() {
 				.expect("the record should exist");
 			assert_eq!(patient_records.len(), max_record_len);
 			assert_eq!(
-				patient_records
-					.into_iter()
-					.filter(|r| r.is_verified())
-                    .count(),
+				patient_records.into_iter().filter(|r| r.is_verified()).count(),
 				max_record_len
 			);
 
@@ -136,10 +130,7 @@ fn doctor_can_transform_unverified_record() {
 			let patient_records = MedicalRecord::records(patient_account_id, UserType::Patient)
 				.expect("records should exists");
 			assert_eq!(
-				patient_records
-					.into_iter()
-					.filter(|r| !r.is_verified())
-					.count(),
+				patient_records.into_iter().filter(|r| !r.is_verified()).count(),
 				max_record_len - 1
 			);
 

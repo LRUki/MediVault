@@ -66,15 +66,14 @@ pub mod pallet {
 		) -> Record<T> {
 			match record {
 				Record::VerifiedRecord(_, _, _, _, _) => record,
-				Record::UnverifiedRecord(record_id, patient_id, record_content) => {
+				Record::UnverifiedRecord(record_id, patient_id, record_content) =>
 					Record::VerifiedRecord(
 						record_id,
 						patient_id,
 						doctor_id,
 						record_content,
 						signature,
-					)
-				},
+					),
 			}
 		}
 
@@ -319,15 +318,15 @@ pub mod pallet {
 		) -> Option<Record<T>> {
 			Self::records(&account_id, user_type).and_then(|records| {
 				if (records.len() as u32) < record_id {
-					return None;
+					return None
 				}
 				records.into_iter().find(|r| r.get_id() == record_id)
 			})
 		}
 
 		fn account_exists(account: &T::AccountId) -> bool {
-			Self::records(account, &UserType::Patient).is_some()
-				|| Self::records(account, &UserType::Doctor).is_some()
+			Self::records(account, &UserType::Patient).is_some() ||
+				Self::records(account, &UserType::Doctor).is_some()
 		}
 	}
 }

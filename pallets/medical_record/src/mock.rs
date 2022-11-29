@@ -79,8 +79,6 @@ pub struct ExternalitiesBuilder {
 	accounts: Vec<(AccountId, UserType)>,
 }
 
-
-
 impl ExternalitiesBuilder {
 	pub fn with_accounts(mut self, accounts: Vec<(AccountId, UserType)>) -> Self {
 		self.accounts = accounts;
