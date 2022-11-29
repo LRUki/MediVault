@@ -297,7 +297,7 @@ pub mod pallet {
 			);
 
 			ensure!(
-				Self::get_record_by_id(sender_id, UserType::Patient, record_id.clone()).is_some(),
+				Self::get_record_by_id(sender_id, UserType::Patient, record_id).is_some(),
 				Error::<T>::NonExistentRecord
 			);
 
