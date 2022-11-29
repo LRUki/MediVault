@@ -74,15 +74,12 @@ impl pallet_record_sharing::Config for Test {
 	type MaxKeyLength = MockMaxKeyLength;
 }
 
+#[derive(Default)]
 pub struct ExternalitiesBuilder {
 	accounts: Vec<(AccountId, UserType)>,
 }
 
-impl Default for ExternalitiesBuilder {
-	fn default() -> Self {
-		Self { accounts: vec![] }
-	}
-}
+
 
 impl ExternalitiesBuilder {
 	pub fn with_accounts(mut self, accounts: Vec<(AccountId, UserType)>) -> Self {

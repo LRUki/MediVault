@@ -24,7 +24,7 @@ fn can_share_record() {
 				patient.clone(),
 				doctor_account_id,
 				BoundedVec::with_max_capacity(),
-				4 as u32,
+				4_u32,
 			),
 			Error::<Test>::VectorFull
 		);
