@@ -317,7 +317,7 @@ pub mod pallet {
 			user_type: UserType,
 			record_id: u32,
 		) -> Option<Record<T>> {
-			Self::records(&account_id, &user_type).map_or(None, |records| {
+			Self::records(&account_id, user_type).and_then(|records| {
 				if (records.len() as u32) < record_id {
 					return None;
 				}
@@ -326,8 +326,8 @@ pub mod pallet {
 		}
 
 		fn account_exists(account: &T::AccountId) -> bool {
-			Self::records(&account, &UserType::Patient).is_some()
-				|| Self::records(&account, &UserType::Doctor).is_some()
+			Self::records(account, &UserType::Patient).is_some()
+				|| Self::records(account, &UserType::Doctor).is_some()
 		}
 	}
 }
